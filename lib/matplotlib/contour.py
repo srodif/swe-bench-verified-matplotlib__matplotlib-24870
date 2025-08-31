@@ -1123,7 +1123,16 @@ class ContourSet(cm.ScalarMappable, ContourLabeler):
         """
         if self.levels is None:
             if len(args) == 0:
-                levels_arg = 7  # Default, hard-wired.
+                # Check if input data is boolean and use appropriate default levels
+                if hasattr(self, '_input_is_boolean') and self._input_is_boolean:
+                    if self.filled:
+                        # For filled contours, use 3 levels to create 2 regions
+                        levels_arg = [0, 0.5, 1]
+                    else:
+                        # For line contours, use single level at boundary
+                        levels_arg = [0.5]
+                else:
+                    levels_arg = 7  # Default, hard-wired.
             else:
                 levels_arg = args[0]
         else:
@@ -1440,6 +1449,25 @@ class QuadContourSet(ContourSet):
 
         return kwargs
 
+    def _is_boolean_data(self, z_orig):
+        """
+        Detect if input data represents boolean values.
+        
+        Returns True if the data is boolean dtype or contains only 0/1 values.
+        """
+        z_orig = np.asarray(z_orig)
+        
+        # Direct boolean dtype check
+        if z_orig.dtype == bool:
+            return True
+            
+        # Check if numeric array contains only 0 and 1 values
+        if np.issubdtype(z_orig.dtype, np.number):
+            unique_vals = np.unique(z_orig[~ma.getmaskarray(ma.asarray(z_orig))])
+            return len(unique_vals) <= 2 and np.all(np.isin(unique_vals, [0, 1]))
+            
+        return False
+
     def _contour_args(self, args, kwargs):
         if self.filled:
             fn = 'contourf'
@@ -1447,10 +1475,14 @@ class QuadContourSet(ContourSet):
             fn = 'contour'
         nargs = len(args)
         if nargs <= 2:
-            z = ma.asarray(args[0], dtype=np.float64)
+            z_orig = args[0]
+            self._input_is_boolean = self._is_boolean_data(z_orig)
+            z = ma.asarray(z_orig, dtype=np.float64)
             x, y = self._initialize_x_y(z)
             args = args[1:]
         elif nargs <= 4:
+            z_orig = args[2]
+            self._input_is_boolean = self._is_boolean_data(z_orig)
             x, y, z = self._check_xyz(args[:3], kwargs)
             args = args[3:]
         else:

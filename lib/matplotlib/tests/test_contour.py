@@ -685,6 +685,42 @@ def test_negative_linestyles(style):
     assert CS4.negative_linestyles == style
 
 
+def test_contour_boolean_array():
+    # Test auto-detection of boolean arrays and automatic level setting
+    
+    # Create a simple boolean array
+    ii, jj = np.ogrid[:10, :10]
+    bool_array = (ii + jj) % 4 < 2
+    
+    fig, ax = plt.subplots()
+    
+    # Test that boolean array gets [0.5] levels by default for contour
+    cs1 = ax.contour(bool_array)
+    assert_array_almost_equal(cs1.levels, [0.5])
+    
+    # Test that boolean array gets [0, 0.5, 1] levels by default for contourf
+    cs1f = ax.contourf(bool_array)
+    assert_array_almost_equal(cs1f.levels, [0, 0.5, 1])
+    
+    # Test that we can still override levels for boolean arrays
+    cs2 = ax.contour(bool_array, levels=[0.3, 0.7])
+    assert_array_almost_equal(cs2.levels, [0.3, 0.7])
+    
+    # Test with explicit integer levels (should work as before)
+    cs3 = ax.contour(bool_array, 3)
+    assert len(cs3.levels) == 3
+    
+    # Test numeric array with only 0 and 1 values (should be treated as boolean)
+    int_01_array = np.array([[0, 1, 0], [1, 0, 1], [0, 1, 0]])
+    cs4 = ax.contour(int_01_array)
+    assert_array_almost_equal(cs4.levels, [0.5])
+    
+    # Test numeric array with other values (should use default levels)
+    regular_array = np.array([[0, 1, 2], [1, 2, 0], [2, 0, 1]])
+    cs5 = ax.contour(regular_array)
+    assert len(cs5.levels) > 1  # Should use default auto levels
+
+
 def test_contour_remove():
     ax = plt.figure().add_subplot()
     orig_children = ax.get_children()
